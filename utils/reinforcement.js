@@ -1,35 +1,35 @@
-// utils/reinforcement.js
+=== utils/webhookEmitter.js ===
+```javascript
+const axios = require('axios');
+const { logToFile } = require('./logger'); // Use the logger
+async function emitToWebhooks(trends) {
+  const webhookUrls = [
+    // Add your webhook URLs here
+    //'[https://your-webhook-url-1.com](https://your-webhook-url-1.com)',
+    //'[https://your-webhook-url-2.com](https://your-webhook-url-2.com)',
+  ];
 
-const fs = require('fs');
-const path = require('path');
-const { logToFile } = require('./logger');
-
-const feedbackPath = path.join(__dirname, '../data/feedback/performance.json');
-
-function applyReinforcement(trendScores, niche) {
-  let feedback = {};
-
-  // Load feedback memory
-  try {
-    if (fs.existsSync(feedbackPath)) {
-      feedback = JSON.parse(fs.readFileSync(feedbackPath, 'utf8'));
-    }
-  } catch (err) {
-    logToFile('reinforcement.log', `Error loading feedback for ${niche}: ${err.message}`);
+  if (!webhookUrls.length) {
+    logToFile('webhookEmitter.log', 'No webhooks configured. Skipping.');
+    return;
   }
 
-  // Adjust scores
-  const adjusted = trendScores.map(trend => {
-    const history = feedback[trend.tag] || {};
-    const boost = history.successRate ? Math.floor(history.successRate * 10) : 0;
-    const finalScore = Math.min(100, trend.score + boost);
-    return { ...trend, score: finalScore };
-  });
-
-  logToFile('reinforcement.log', `Applied reinforcement for ${niche}: ${adjusted.length} trends`);
-  return adjusted;
+  for (const url of webhookUrls) {
+    try {
+      await axios.post(url, { trends });
+      logToFile('webhookEmitter.log', `Successfully emitted trends to webhook: ${url}`);
+    } catch (error) {
+      let errorMessage = `Error emitting to webhook ${url}: `;
+        if (error.response) {
+            errorMessage += `Status ${error.response.status}: ${error.response.data}`;
+        } else if (error.request) {
+            errorMessage += 'No response received from webhook.';
+        } else {
+            errorMessage += error.message;
+        }
+      logToFile('webhookEmitter.log', errorMessage);
+    }
+  }
 }
 
-module.exports = {
-  applyReinforcement
-};
+module.exports = { emitToWebhooks };
