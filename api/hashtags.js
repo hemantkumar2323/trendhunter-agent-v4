@@ -1,47 +1,17 @@
-// api/hashtags.js
-
+=== api/audio.js ===
+```javascript
 const express = require('express');
 const router = express.Router();
+const { logJSON, logToFile } = require('../utils/logger'); // Use the logger
 
-const { scrapeTikTokHashtags, scrapeInstagramHashtags } = require('../utils/scraper');
-const { classifyHashtags } = require('../utils/hashtagClassifier');
-const { scoreTrends } = require('../utils/scorer');
-const { applyReinforcement } = require('../utils/reinforcement');
-const { emitToWebhooks } = require('../utils/webhookEmitter');
-const { logToFile, logJSON } = require('../utils/logger');
+const trendingAudio = require('../data/audio/sample-audio.json');
 
-router.get('/:niche', async (req, res) => {
+router.get('/:niche', (req, res) => {
   const { niche } = req.params;
-  const platform = req.query.platform || 'tiktok';
-
-  try {
-    // Step 1: Scrape
-    const rawHashtags = platform === 'instagram'
-      ? await scrapeInstagramHashtags(niche)
-      : await scrapeTikTokHashtags(niche);
-
-    // Step 2: Classify
-    const classified = classifyHashtags(rawHashtags, niche);
-
-    // Step 3: Score each tag in each group
-    const scored = [];
-    Object.values(classified).flat().forEach(tag => {
-      const tagScore = scoreTrends([tag], platform, niche)[0];
-      scored.push(tagScore);
-    });
-
-    // Step 4: Reinforce with memory
-    const finalTrends = applyReinforcement(scored, niche);
-
-    // Step 5: Save and send
-    logJSON(`../output/${niche}-approved-trends.json`, finalTrends);
-    await emitToWebhooks(finalTrends);
-
-    res.json({ success: true, trends: finalTrends });
-  } catch (err) {
-    logToFile('hashtags-api.log', `Error in /api/hashtags/${niche}: ${err.message}`);
-    res.status(500).json({ success: false, error: err.message });
-  }
+  const audio = trendingAudio[niche] || [];
+  if (!audio.length) return res.status(404).json({ success: false });
+  logJSON('trending-audio.json', audio);
+  logToFile('audio-api.log', `Returned audio for ${niche}`);
+  res.json({ success: true, audio });
 });
-
 module.exports = router;
