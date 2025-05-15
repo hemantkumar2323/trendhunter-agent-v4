@@ -1,35 +1,36 @@
-// api/trigger.js
+=== utils/logger.js ===
+```javascript
+const winston = require('winston');
+const { combine, timestamp, json } = winston.format;
+const DailyRotateFile = require('winston-daily-rotate-file');
 
-const express = require('express');
-const router = express.Router();
-const { logToFile } = require('../utils/logger');
-const fs = require('fs');
-const path = require('path');
+//const logDir = path.join(__dirname, '../logs');  // No longer needed, winston creates dir
+//if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
 
-const surgeSignalPath = path.join(__dirname, '../data/live/surge-events.json');
+const logFormat = combine(
+    timestamp(),
+    json()
+);
 
-router.post('/', (req, res) => {
-  const trigger = req.body;
-
-  try {
-    if (!trigger || typeof trigger !== 'object' || !trigger.type || !trigger.niche) {
-      return res.status(400).json({ success: false, message: 'Invalid trigger format' });
-    }
-
-    let current = [];
-    if (fs.existsSync(surgeSignalPath)) {
-      current = JSON.parse(fs.readFileSync(surgeSignalPath, 'utf8'));
-    }
-
-    current.push({ ...trigger, receivedAt: new Date().toISOString() });
-    fs.writeFileSync(surgeSignalPath, JSON.stringify(current, null, 2));
-
-    logToFile('trigger-api.log', `Trigger received: ${trigger.type} for ${trigger.niche}`);
-    res.json({ success: true, message: 'Trigger recorded.' });
-  } catch (err) {
-    logToFile('trigger-api.log', `Error processing trigger: ${err.message}`);
-    res.status(500).json({ success: false, error: err.message });
-  }
+const logger = winston.createLogger({
+    format: logFormat,
+    transports: [
+        new DailyRotateFile({
+            filename: 'logs/application-%DATE%.log',
+            datePattern: 'YYYY-MM-DD',
+            zippedArchive: true,
+            maxSize: '20m',
+            maxFiles: '14d',
+            level: 'info'
+        }),
+        new winston.transports.Console({ level: 'debug' }) // Also log to console
+    ]
 });
+function logToFile(file, msg) {
+  logger.info({message: msg, file: file});
+}
 
-module.exports = router;
+function logJSON(file, data) {
+  logger.info({message: 'JSON data', file: file, data: data});
+}
+module.exports = { logToFile, logJSON, logger }; // Export the logger instance
