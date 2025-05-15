@@ -1,38 +1,37 @@
-// utils/webhookEmitter.js
+=== utils/errorHandling.js ===
+```javascript
+const { logger } = require('./logger');  // Import the Winston logger
 
-const axios = require('axios');
-const { logToFile } = require('./logger');
-
-const endpoints = {
-  creativeAgent: "https://your-domain.com/creative-agent/api/receiveTrends",
-  postMortemAgent: "https://your-domain.com/postmortem-agent/api/trendLog",
-  schedulerAgent: "https://your-domain.com/scheduler-agent/api/immediatePush"
-};
-
-async function emitToWebhooks(finalTrends) {
-  try {
-    const payload = { trends: finalTrends };
-
-    // Send to CreativeAgent
-    await axios.post(endpoints.creativeAgent, payload);
-    logToFile('webhookEmitter.log', `Sent trends to CreativeAgent`);
-
-    // Send to PostMortemAgent
-    await axios.post(endpoints.postMortemAgent, payload);
-    logToFile('webhookEmitter.log', `Sent trends to PostMortemAgent`);
-
-    // Optional: Send to Scheduler if score > threshold
-    const hotTrends = finalTrends.filter(t => t.score >= 95);
-    if (hotTrends.length > 0) {
-      await axios.post(endpoints.schedulerAgent, { trends: hotTrends });
-      logToFile('webhookEmitter.log', `Urgent push to SchedulerAgent: ${hotTrends.length} items`);
+const handleError = (err, req, res, next) => {
+  // Log the error with detailed information
+  logger.error({
+    message: "Unhandled error",
+    error: err,
+    stack: err.stack,
+    request: {
+      method: req.method,
+      url: req.originalUrl,
+      body: req.body,
+      headers: req.headers
     }
+  });
 
-  } catch (err) {
-    logToFile('webhookEmitter.log', `Error sending to webhook: ${err.message}`);
+  // Customize the error response based on the error type
+  let statusCode = 500;
+  let message = "Internal Server Error";
+
+  if (err.name === 'ValidationError') {
+    statusCode = 400;
+    message = err.message;
+  } else if (err.message === 'Rate limit exceeded') {
+    statusCode = 429;
+    message = 'Rate limit exceeded. Please try again later.';
   }
-}
 
-module.exports = {
-  emitToWebhooks
+  res.status(statusCode).json({
+    success: false,
+    error: message
+  });
 };
+
+module.exports = { handleError };
