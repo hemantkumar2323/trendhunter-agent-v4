@@ -1,15 +1,49 @@
-{
-  "name": "trendhunter-agent",
-  "version": "1.0.0",
-  "type": "module",
-  "description": "AI-powered trend tracking agent for Instagram & TikTok",
-  "main": "index.js",
-  "scripts": {
-    "start": "node signals/liveSignalTracker.js"
-  },
-  "dependencies": {
-    "axios": "^1.4.0",
-    "jsdom": "^23.1.1",
-    "fs-extra": "^11.1.1"
-  }
-}
+=== index.js (Entry Point) ===
+```javascript
+require('dotenv').config(); // Load environment variables from .env file
+const express = require('express');
+const app = express();
+const {handleError} = require('./utils/errorHandling'); // Import error handler
+require('express-async-errors'); // Handle async errors
+
+// Set up Winston Logging
+const winston = require('winston');
+const { combine, timestamp, json } = winston.format;
+const DailyRotateFile = require('winston-daily-rotate-file');
+
+const logFormat = combine(
+    timestamp(),
+    json()
+);
+const logger = winston.createLogger({
+    format: logFormat,
+    transports: [
+        new DailyRotateFile({
+            filename: 'logs/application-%DATE%.log',
+            datePattern: 'YYYY-MM-DD',
+            zippedArchive: true,
+            maxSize: '20m',
+            maxFiles: '14d',
+            level: 'info'
+        }),
+        new winston.transports.Console({ level: 'debug' }) // Also log to console
+    ]
+});
+//Make it global
+global.logger = logger;
+
+
+app.use(express.json());
+
+app.use('/api/hashtags', require('./api/hashtags'));
+app.use('/api/audio', require('./api/audio'));
+app.use('/api/trends', require('./api/trends'));
+app.use('/api/feedback', require('./api/feedback'));
+app.use('/api/trigger', require('./api/trigger'));
+
+// Error handling middleware (should be defined last)
+app.use(handleError);
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => logger.info(`TrendHunterAgent listening on port ${PORT}`));
+
