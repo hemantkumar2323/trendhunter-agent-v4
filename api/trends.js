@@ -1,48 +1,20 @@
-// api/trends.js
-
+=== api/feedback.js ===
+```javascript
 const express = require('express');
 const router = express.Router();
 const fs = require('fs');
 const path = require('path');
-const { logToFile } = require('../utils/logger');
+const { logToFile } = require('../utils/logger'); // Use the logger
 
-const approvedTrendsPath = path.join(__dirname, '../output/approved-trends.json');
-
-router.get('/', (req, res) => {
-  try {
-    if (!fs.existsSync(approvedTrendsPath)) {
-      return res.status(404).json({ success: false, message: 'No approved trends available yet.' });
-    }
-
-    const data = JSON.parse(fs.readFileSync(approvedTrendsPath, 'utf8'));
-    logToFile('trends-api.log', `Fetched ${data.length} approved trends.`);
-    res.json({ success: true, trends: data });
-  } catch (err) {
-    logToFile('trends-api.log', `Error reading approved trends: ${err.message}`);
-    res.status(500).json({ success: false, error: err.message });
-  }
+const feedbackPath = path.join(__dirname, '../data/feedback/performance.json');
+router.post('/', (req, res) => {
+  const fb = req.body;
+  let existing = {};
+  if (fs.existsSync(feedbackPath)) existing = JSON.parse(fs.readFileSync(feedbackPath, 'utf8'));
+  Object.assign(existing, fb);
+  fs.writeFileSync(feedbackPath, JSON.stringify(existing, null, 2));
+  logToFile('feedback-api.log', `Updated feedback for ${Object.keys(fb).length} items`);
+  res.json({ success: true });
 });
-
 module.exports = router;
 
-// sources/fallbackAPI.js
-
-const { logToFile } = require('../utils/logger');
-
-/**
- * Fallback source (mocked). Real usage: call Trendpop, TikTok API, etc.
- */
-async function fetchFallbackTrends(niche, platform = 'tiktok') {
-  logToFile('fallbackAPI.log', `Fallback triggered for ${niche} on ${platform}`);
-
-  // Simulated fallback trends
-  return [
-    { tag: '#fallback1', platform, niche, score: 72 },
-    { tag: '#fallback2', platform, niche, score: 67 },
-    { tag: '#fallback3', platform, niche, score: 74 }
-  ];
-}
-
-module.exports = {
-  fetchFallbackTrends
-};
