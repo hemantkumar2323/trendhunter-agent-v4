@@ -1,28 +1,33 @@
-// utils/scorer.js
+=== utils/reinforcement.js ===
+```javascript
+const { logToFile } = require('./logger'); // Use the logger
 
-const { logToFile } = require('./logger');
+let weights = {
+  views: 0.3,
+  likes: 0.2,
+  saves: 0.5
+};
 
-/**
- * Simulate scoring logic for each hashtag or trend.
- * Real scoring can include views, growth rate, velocity, sentiment, etc.
- */
-function scoreTrends(hashtags, platform = "tiktok", niche = "general") {
-  const scored = hashtags.map(tag => {
-    // Simulate score between 50-100 based on tag length (placeholder logic)
-    const score = 50 + Math.floor((Math.random() * 50));
-    return {
-      tag,
-      platform,
-      niche,
-      score,
-      timestamp: new Date().toISOString()
-    };
+function applyReinforcement(trends, niche) {
+  if (!trends || trends.length === 0) {
+    return [];
+  }
+  const reinforcedTrends = trends.map(trend => {
+    let overallScore = 0;
+      if(trend.views){
+        overallScore += (parseInt(trend.views) || 0) * weights.views;
+      }
+      if (trend.likes){
+        overallScore += (parseInt(trend.likes) || 0) * weights.likes;
+      }
+      if (trend.saves){
+        overallScore += (parseInt(trend.saves) || 0) * weights.saves;
+      }
+    const boostedScore = overallScore * 1.2;
+    logToFile('reinforcement.log', `Applied reinforcement to trend ${trend.title} in niche ${niche}.  Original score: ${overallScore}, boosted score: ${boostedScore}`);
+    return { ...trend, score: boostedScore };
   });
-
-  logToFile('scorer.log', `Scored ${scored.length} trends for ${platform} (${niche})`);
-  return scored;
+  return reinforcedTrends;
 }
 
-module.exports = {
-  scoreTrends
-};
+module.exports = { applyReinforcement };
