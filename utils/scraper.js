@@ -1,44 +1,30 @@
-// utils/scraper.js
+=== utils/hashtagClassifier.js ===
+```javascript
+const { logToFile } = require('./logger'); // Use the logger
 
-const axios = require('axios');
-const cheerio = require('cheerio');
-const { logToFile } = require('./logger');
-
-async function scrapeTikTokHashtags(niche) {
-  try {
-    const url = `https://www.tiktok.com/tag/${niche}`;
-    const response = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-    const $ = cheerio.load(response.data);
-    const hashtags = [];
-
-    $('a[href*="/tag/"]').each((i, elem) => {
-      const tag = $(elem).attr('href').split('/tag/')[1];
-      if (tag && !hashtags.includes(tag)) hashtags.push(`#${tag}`);
-    });
-
-    logToFile('scraper.log', `TikTok hashtags scraped for ${niche}: ${hashtags.length}`);
-    return hashtags;
-  } catch (err) {
-    logToFile('scraper.log', `TikTok hashtag scrape failed for ${niche}: ${err.message}`);
-    return [];
-  }
+function classifyHashtags(tags, niche) {
+  const classified = {
+    large: [],
+    mid: [],
+    small: []
+  };
+  // Improved classification logic (example - adapt as needed)
+  tags.forEach(tag => {
+    const cleanedTag = tag.replace(/[^a-zA-Z0-9]/g, '').toLowerCase(); // Basic cleaning
+    let volume = 0;
+    if (cleanedTag.length > 0){
+      volume = cleanedTag.length * 1000; // Just for test
+    }
+    if (volume > 1000000) {
+      classified.large.push(tag);
+    } else if (volume > 100000) {
+      classified.mid.push(tag);
+    } else {
+      classified.small.push(tag);
+    }
+  });
+  logToFile('hashtagClassifier.log', `Classified ${tags.length} hashtags for ${niche}: ${classified.large.length} large, ${classified.mid.length} mid, ${classified.small.length} small`);
+  return classified;
 }
 
-async function scrapeInstagramHashtags(niche) {
-  try {
-    const url = `https://www.instagram.com/explore/tags/${niche}/`;
-    const response = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-    const hashtags = []; // Placeholder: IG uses dynamic JS rendering, hard to scrape statically
-
-    logToFile('scraper.log', `Instagram hashtag scrape simulated for ${niche}`);
-    return hashtags; // Placeholder for headless browser scraping (e.g., Puppeteer)
-  } catch (err) {
-    logToFile('scraper.log', `Instagram hashtag scrape failed for ${niche}: ${err.message}`);
-    return [];
-  }
-}
-
-module.exports = {
-  scrapeTikTokHashtags,
-  scrapeInstagramHashtags
-};
+module.exports = { classifyHashtags };
